@@ -1,0 +1,19 @@
+{
+  "name": "working-mpd-client",
+  "version": "0.1.0",
+  "description": "mpd client",
+  "main": "mpd.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nskazki/node-WorkingMpdClient.git"
+  },
+  "author": "nskazki (http://nskazki.dyndns.info/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nskazki/node-WorkingMpdClient/issues"
+  },
+  "homepage": "https://github.com/nskazki/node-WorkingMpdClient"
+}
