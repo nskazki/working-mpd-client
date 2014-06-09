@@ -65,5 +65,5 @@ mpdClient
  * update - начало или окончание обновления базы данных треков.
  * database - уведомление об обновлении базы данных треков.
 
-<h5>Документация MPD:<h5>
+<h5>Документация MPD:</h5>
 [MPD Docs](http://www.musicpd.org/doc/protocol/)
