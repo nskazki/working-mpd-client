@@ -182,7 +182,7 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 		});
 
 		setTimeout(
-			this._funcCoreClientInit.bind(this), 
+			this._funcCoreClientInit.bind(this),
 			this._paramReconnectOptions.reconnectDelay);
 	} else {
 		this.emit('warn', {
@@ -235,7 +235,7 @@ MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 
 			var callback = this._valueCallbackQueue.shift();
 			if (end[0].match(/(^ACK*.)/)) callback(end[0]);
-			else callback(null, result);
+			else callback(null, result.trim());
 		}
 
 		welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
