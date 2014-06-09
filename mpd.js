@@ -65,6 +65,8 @@ MpdClient.prototype.sendCommand = function(rawCommand, callback) {
 
 	this._sendCommandWithoutCallback('noidle');
 	this._sendCommandWithCallback(rawCommand, callback);
+
+	return this;
 };
 
 MpdClient.prototype._sendCommandWithCallback = function(rawCommand, callback) {
@@ -90,6 +92,8 @@ MpdClient.prototype.sendCommandList = function(rawCommandList, callback) {
 
 	var fullCmd = "command_list_begin\n" + commandList.join('') + "command_list_end";
 	this.sendCommand(fullCmd, callback);
+
+	return this;
 };
 
 MpdClient.prototype._funcCoreClientSendData = function(data) {
