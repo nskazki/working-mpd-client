@@ -133,7 +133,7 @@ function Command(rawCommand) {
 	if (typeof rawCommand == 'string') {
 		this.cmd = rawCommand;
 		this.args = [];
-	} else if (!rawCommand.args) {
+	} else if (!rawCommand.hasOwnProperty('args')) {
 		this.cmd = rawCommand.cmd;
 		this.args = [];
 	} else if (!util.isArray(rawCommand.args)) {
@@ -184,14 +184,11 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 			desc: 'Предпринимается попытка переподключиться к серверу.',
 			reconnectDelay: this._paramReconnectOptions.reconnectDelay
 		});
-		this.emit('reconnecting');
 
 		setTimeout(
 			this._funcCoreClientInit.bind(this),
 			this._paramReconnectOptions.reconnectDelay);
 	} else {
-		this.emit('disconnected')
-
 		this.emit('warn', {
 			desc: 'Соединение с сервером закрылось, в соответствии с настройками реконект не будет произведен.'
 		});
@@ -228,8 +225,10 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 	this._valueDataBuffer += data;
 
+	console.log(data);
+
 	var welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
-	var end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK.*(?:\n|$))/m);
+	var end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
 
 	while (welcom || end) {
 		if (welcom) {
@@ -241,7 +240,7 @@ MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 
 
 			var callback = this._valueCallbackQueue.shift();
-			if (end[0].match(/(^ACK*.)/)) callback(end[0]);
+			if (end[0].match(/^ACK\s\[.*?\].*(?:\n|$)/)) callback(end[0]);
 			else callback(null, result.trim());
 		}
 
