@@ -225,8 +225,6 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 	this._valueDataBuffer += data;
 
-	console.log(data);
-
 	var welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
 	var end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
 
