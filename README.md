@@ -2,7 +2,7 @@ WorkingMpdClient
 =======
 
 ```
-npm-install working-mpd-client --save
+npm install working-mpd-client --save
 ```
 
 <h5>Это клиент для MPD сервера, он умеет:</h5>
