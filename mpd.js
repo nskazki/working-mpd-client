@@ -184,11 +184,14 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 			desc: 'Предпринимается попытка переподключиться к серверу.',
 			reconnectDelay: this._paramReconnectOptions.reconnectDelay
 		});
+		this.emit('reconnecting');
 
 		setTimeout(
 			this._funcCoreClientInit.bind(this),
 			this._paramReconnectOptions.reconnectDelay);
 	} else {
+		this.emit('disconnected')
+
 		this.emit('warn', {
 			desc: 'Соединение с сервером закрылось, в соответствии с настройками реконект не будет произведен.'
 		});
