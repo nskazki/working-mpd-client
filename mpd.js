@@ -226,7 +226,7 @@ MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 	this._valueDataBuffer += data;
 
 	var welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
-	var end = this._valueDataBuffer.match(/(^OK(?:\n|$)|ACK.*(?:\n|$))/m);
+	var end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK.*(?:\n|$))/m);
 
 	while (welcom || end) {
 		if (welcom) {
@@ -243,7 +243,7 @@ MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 		}
 
 		welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
-		end = this._valueDataBuffer.match(/(^OK(?:\n|$)|ACK.*(?:\n|$))/m);
+		end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
 	}
 
 	if (!this._valueCallbackQueue.length) {
