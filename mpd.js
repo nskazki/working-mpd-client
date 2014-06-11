@@ -3,9 +3,12 @@
 
 "use strict";
 
+//require
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var net = require('net');
+
+//end require
 
 module.exports = MpdClient;
 
