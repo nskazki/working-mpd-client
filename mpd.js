@@ -111,7 +111,7 @@ MpdClient.prototype._funcCoreClientSendData = function(data) {
 */
 function createDummyCallback(command) {
 	return function(err) {
-		if (err) this.emit('error', {
+		if (err) this.emit('warn', {
 			desc: 'Сервер вернул ошибку, на команду не зарегистриравшую callback.',
 			command: command,
 			error: err
@@ -192,7 +192,7 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 			this._funcCoreClientInit.bind(this),
 			this._paramReconnectOptions.reconnectDelay);
 	} else {
-		this.emit('warn', {
+		this.emit('error', {
 			desc: 'Соединение с сервером закрылось, в соответствии с настройками реконект не будет произведен.'
 		});
 	}
@@ -261,7 +261,7 @@ MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 //idle
 MpdClient.prototype._funcIdleHandler = function(err, result) {
 	if (err) {
-		this.emit('error', {
+		this.emit('warn', {
 			desc: 'На запрос изменений состояния сервера вернулась ошибка.',
 			error: err
 		});
