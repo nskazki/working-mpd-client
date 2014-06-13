@@ -10,6 +10,15 @@ var net = require('net');
 
 //end require
 
+//const
+var DEBUG = false;
+
+//end const
+
+var EventEmitter = require('events').EventEmitter;
+var util = require('util');
+var net = require('net');
+
 module.exports = MpdClient;
 
 util.inherits(MpdClient, EventEmitter);
@@ -182,11 +191,20 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 		.removeAllListeners('data')
 		.removeAllListeners('close');
 
+	while (this._valueCallbackQueue.length) {
+		var callback = this._valueCallbackQueue.shift();
+		callback({
+			desc: "Соединение с сервером закрылось."
+		});
+	}
+
 	if (this._paramReconnectOptions.isUse) {
 		this.emit('warn', {
 			desc: 'Предпринимается попытка переподключиться к серверу.',
 			reconnectDelay: this._paramReconnectOptions.reconnectDelay
 		});
+
+		this.emit('reconnecting');
 
 		setTimeout(
 			this._funcCoreClientInit.bind(this),
@@ -195,6 +213,8 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 		this.emit('error', {
 			desc: 'Соединение с сервером закрылось, в соответствии с настройками реконект не будет произведен.'
 		});
+
+		this.emit('disconnected');
 	}
 };
 
@@ -230,6 +250,20 @@ MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
 
 	var welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
 	var end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
+
+	if (DEBUG) {
+		console.log('---------------');
+		console.log('new data part');
+		console.log(data);
+		console.log('---------------');
+		console.log();
+
+		console.log('---------------');
+		console.log('buffer');
+		console.log(this._valueDataBuffer);
+		console.log('---------------');
+		console.log();
+	}
 
 	while (welcom || end) {
 		if (welcom) {
