@@ -1,6 +1,54 @@
-//за основу взят проет вот этого парня и перепилен https://github.com/andrewrk/mpd.js
-//добавлен reconnect, и стиль изменен в соответствии с моим представлением о прекрасном
+/**
+	https://github.com/nskazki/node-WorkingMpdClient
+	MIT
+	from russia with love, 2014
+*/
 
+/**
+	За основу взят проет вот этого парня и перепилен https://github.com/andrewrk/mpd.js
+	Добавлен reconnect, 
+	
+	Отделен транспорт для серверных команд, 
+	от транспорта извещений сервера о произошедших в нем изменений.
+	Потому что паралельный опрос сервера на предмет изменений и отправка команд
+	пораждала странные и невоспроизводимые баги.
+
+	И стиль изменен в соответствии с моим представлением о прекрасном
+
+*/
+
+/**
+	Public:
+	
+		init
+		destroy
+
+		sendCommand
+		sendCommandList
+	
+	Events:
+	
+		destroyed
+
+		ready
+		ready-core	
+		ready-idle
+		
+		reconnecting
+		reconnecting-core
+		reconnecting-idle
+
+		reconnected
+		reconnected-core
+		reconnected-idle
+
+		disconnected
+		disconnected-core
+		disconnected-idle
+
+		changed
+
+*/
 "use strict";
 
 //require
@@ -48,18 +96,78 @@ function MpdClient(params) {
 
 	//value
 	this._valueIsInit = false;
+
+
 	this._valueCoreClient = null;
-	this._valueCallbackQueue = [];
-	this._valueDataBuffer = "";
+	this._valueCoreCallbackQueue = [];
+	this._valueCoreDataBuffer = "";
+	this._valueIsCoreReady = false;
+
+	this._valueIdleClient = null;
+	this._valueIdleCallbackQueue = [];
+	this._valueIdleDataBufer = "";
+	this._valueIsIdleReady = false;
 
 	//end value
 }
 
 MpdClient.prototype.init = function() {
 	if (!this._valueIsInit) {
-		this._funcCoreClientInit();
+		this._funcClientInit({
+			object: '_valueCoreClient',
+			name: "core",
+			isReady: '_valueIsCoreReady',
+			callbackQueue: this._valueCoreCallbackQueue,
+			buffer: this._valueCoreDataBuffer
+		});
+
+
+		this._funcClientInit({
+			object: '_valueIdleClient',
+			name: "idle",
+			isReady: '_valueIsIdleReady',
+			callbackQueue: this._valueIdleCallbackQueue,
+			buffer: this._valueIdleDataBufer
+		});
+
+		this.on('ready-idle', this._funcIdleInit.bind(this));
+		this.on('reconnected-idle', this._funcIdleInit.bind(this));
 
 		this._valueIsInit = true;
+	}
+
+	return this;
+};
+
+MpdClient.prototype.destroy = function() {
+	if (this._valueIsInit) {
+		this._valueCoreClient.removeAllListeners();
+		this._valueIdleClient.removeAllListeners();
+
+		if (!this._valueCoreClient.destroyed) {
+			this._valueCoreClient.destroy();
+			this.emit('disconnected-core');
+			this.emit('disconnected');
+		}
+
+		if (!this._valueIdleClient.destroyed) {
+			this._valueIdleClient.destroy();
+			this.emit('disconnected-idle');
+		}
+
+
+		this._funcCloseAllRequests(this._valueCoreClient, 'core');
+		this._funcCloseAllRequests(this._valueIdleClient, 'idle');
+
+		this._valueCoreDataBuffer = "";
+		this._valueIdleDataBufer = "";
+
+		this._valueIsIdleReady = false;
+		this._valueIsCoreReady = false;
+
+		this._valueIsInit = false;
+
+		this.emit('destroyed');
 	}
 
 	return this;
@@ -75,19 +183,13 @@ MpdClient.prototype.init = function() {
 MpdClient.prototype.sendCommand = function(rawCommand, callback) {
 	if (!callback) callback = createDummyCallback(rawCommand).bind(this);
 
-	this._sendCommandWithoutCallback('noidle');
-	this._sendCommandWithCallback(rawCommand, callback);
+	this._sendCommandWithCallback(
+		this._valueCoreClient,
+		this._valueCoreCallbackQueue,
+		rawCommand,
+		callback);
 
 	return this;
-};
-
-MpdClient.prototype._sendCommandWithCallback = function(rawCommand, callback) {
-	this._valueCallbackQueue.push(callback);
-	this._funcCoreClientSendData(new Command(rawCommand));
-};
-
-MpdClient.prototype._sendCommandWithoutCallback = function(rawCommand) {
-	this._funcCoreClientSendData(new Command(rawCommand));
 };
 
 /**
@@ -108,9 +210,18 @@ MpdClient.prototype.sendCommandList = function(rawCommandList, callback) {
 	return this;
 };
 
-MpdClient.prototype._funcCoreClientSendData = function(data) {
-	if (!this._valueCoreClient.destroyed) {
-		this._valueCoreClient.write(data.toString());
+MpdClient.prototype._sendCommandWithCallback = function(client, queue, rawCommand, callback) {
+	queue.push(callback);
+	this._funcClientSendData(client, new Command(rawCommand));
+};
+
+MpdClient.prototype._sendCommandWithoutCallback = function(client, rawCommand) {
+	this._funcClientSendData(client, new Command(rawCommand));
+};
+
+MpdClient.prototype._funcClientSendData = function(client, data) {
+	if (!client.destroyed) {
+		client.write(data.toString());
 	}
 };
 
@@ -167,54 +278,79 @@ Command.prototype.toString = function() {
 //end sends
 
 //CoreClient
-MpdClient.prototype._funcCoreClientInit = function() {
-	this._valueCoreClient = net.connect(this._paramConnectOptions)
+/**
+	clientProps = {
+		object: ...,
+		name: "...",
+		isReady: ...,
+		callbackQueue: ...,
+		buffer: ...
+	}
+*/
+MpdClient.prototype._funcClientInit = function(clientProps) {
+	this[clientProps.object] = net.connect(this._paramConnectOptions)
 		.on('connect', function() {
-			this.emit('ready');
+			if (this[clientProps.isReady] == false) {
+				this[clientProps.isReady] = true;
+
+				if (this._valueIsIdleReady && this._valueIsCoreReady) this.emit('ready');
+				this.emit('ready-' + clientProps.name);
+			} else {
+				this.emit('reconnected-' + clientProps.name);
+				if (clientProps.name == 'core') this.emit('reconnected');
+			}
+
 		}.bind(this))
 		.on('error', function(error) {
 			this.emit('error', {
-				desc: 'Произошла ошибка соединения с mpd сервером.',
+				desc: 'Произошла ошибка соединения с mpd сервером. ' + clientProps.name,
 				error: error
 			});
 		}.bind(this))
-		.on('data', this._funcCoreClientOnDataSubscriber.bind(this))
-		.on('close', this._funcCoreClientReconect.bind(this));
+		.on('data', this._funcCreateClientOnDataHandler(clientProps).bind(this))
+		.on('close', this._funcCreateClientReconecter(clientProps).bind(this));
 
-	this._valueCoreClient.setEncoding('utf8');
+	this[clientProps.object].setEncoding('utf8');
 };
 
-MpdClient.prototype._funcCoreClientReconect = function() {
-	this._valueCoreClient
-		.removeAllListeners('connect')
-		.removeAllListeners('error')
-		.removeAllListeners('data')
-		.removeAllListeners('close');
+MpdClient.prototype._funcCreateClientReconecter = function(clientProps) {
+	return function() {
+		this[clientProps.object].removeAllListeners();
 
-	while (this._valueCallbackQueue.length) {
-		var callback = this._valueCallbackQueue.shift();
-		callback({
-			desc: "Соединение с сервером закрылось."
-		});
+		this._funcCloseAllRequests(clientProps.callbackQueue, clientProps.name);
+
+		clientProps.buffer = "";
+
+		if (this._paramReconnectOptions.isUse) {
+			this.emit('warn', {
+				desc: 'Предпринимается попытка переподключиться к серверу. ' + clientProps.name,
+				reconnectDelay: this._paramReconnectOptions.reconnectDelay
+			});
+
+			this.emit('reconnecting-' + clientProps.name);
+			if (clientProps.name == 'core') this.emit('reconnecting');
+
+			setTimeout(function() {
+				this._funcClientInit(clientProps);
+			}.bind(this), this._paramReconnectOptions.reconnectDelay);
+		} else {
+			this.emit('error', {
+				desc: 'Соединение с сервером закрылось, в соответствии с настройками реконект не будет произведен.'
+			});
+
+			this.emit('disconnected-' + clientProps.name);
+			if (clientProps.name == 'core') this.emit('disconnected');
+		}
 	}
+};
 
-	if (this._paramReconnectOptions.isUse) {
-		this.emit('warn', {
-			desc: 'Предпринимается попытка переподключиться к серверу.',
-			reconnectDelay: this._paramReconnectOptions.reconnectDelay
+
+MpdClient.prototype._funcCloseAllRequests = function(queue, clientName) {
+	while (queue.length) {
+		var callback = queue.shift();
+		callback({
+			desc: "Соединение с сервером закрылось. " + clientName
 		});
-
-		this.emit('reconnecting');
-
-		setTimeout(
-			this._funcCoreClientInit.bind(this),
-			this._paramReconnectOptions.reconnectDelay);
-	} else {
-		this.emit('error', {
-			desc: 'Соединение с сервером закрылось, в соответствии с настройками реконект не будет произведен.'
-		});
-
-		this.emit('disconnected');
 	}
 };
 
@@ -245,48 +381,48 @@ MpdClient.prototype._funcCoreClientReconect = function() {
 	ожидающие выполнения, если нет то опрашиваю сервер командой 'idle'
 
 */
-MpdClient.prototype._funcCoreClientOnDataSubscriber = function(data) {
-	this._valueDataBuffer += data;
+MpdClient.prototype._funcCreateClientOnDataHandler = function(clientProps) {
+	return function(data) {
+		clientProps.buffer += data;
 
-	var welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
-	var end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
+		var welcom = clientProps.buffer.match(/(^OK MPD.*?\n)/m);
+		var end = clientProps.buffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
 
-	if (DEBUG) {
-		console.log('---------------');
-		console.log('new data part');
-		console.log(data);
-		console.log('---------------');
-		console.log();
+		if (DEBUG) {
+			console.log('-------' + clientProps.name + '-------');
+			console.log('new data part');
+			console.log(data);
+			console.log('-------' + clientProps.name + '-------');
+			console.log();
 
-		console.log('---------------');
-		console.log('buffer');
-		console.log(this._valueDataBuffer);
-		console.log('---------------');
-		console.log();
-	}
+			console.log('-------' + clientProps.name + '-------');
+			console.log('buffer');
+			console.log(clientProps.buffer);
+			console.log('-------' + clientProps.name + '-------');
+			console.log();
 
-	while (welcom || end) {
-		if (welcom) {
-			this._valueDataBuffer = this._valueDataBuffer.substring(welcom[0].length + welcom.index);
-			this._funcIdleInit();
-		} else {
-			var result = this._valueDataBuffer.substring(0, end.index);
-			this._valueDataBuffer = this._valueDataBuffer.substring(end[0].length + end.index);
-
-
-			var callback = this._valueCallbackQueue.shift();
-			if (end[0].match(/^ACK\s\[.*?\].*(?:\n|$)/)) callback(end[0]);
-			else callback(null, result.trim());
+			console.log('-------' + clientProps.name + '-------');
+			console.log('queue length');
+			console.log(clientProps.callbackQueue.length);
+			console.log('-------' + clientProps.name + '-------');
+			console.log();
 		}
 
-		welcom = this._valueDataBuffer.match(/(^OK MPD.*?\n)/m);
-		end = this._valueDataBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
-	}
+		while (welcom || end) {
+			if (welcom) {
+				clientProps.buffer = clientProps.buffer.substring(welcom[0].length + welcom.index);
+			} else {
+				var result = clientProps.buffer.substring(0, end.index);
+				clientProps.buffer = clientProps.buffer.substring(end[0].length + end.index);
 
-	if (!this._valueCallbackQueue.length) {
-		this._sendCommandWithCallback(
-			'idle',
-			this._funcIdleHandler.bind(this));
+				var callback = clientProps.callbackQueue.shift();
+				if (end[0].match(/^ACK\s\[.*?\].*(?:\n|$)/)) callback(end[0]);
+				else callback(null, result.trim());
+			}
+
+			welcom = clientProps.buffer.match(/(^OK MPD.*?\n)/m);
+			end = clientProps.buffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
+		}
 	}
 };
 
@@ -306,6 +442,8 @@ MpdClient.prototype._funcIdleHandler = function(err, result) {
 			this.emit('changed', changed);
 		}.bind(this));
 	}
+
+	this._funcIdleInit();
 };
 
 /**
@@ -315,9 +453,14 @@ MpdClient.prototype._funcIdleHandler = function(err, result) {
 	
 */
 MpdClient.prototype._funcIdleInit = function() {
-	this._sendCommandWithCallback(
-		'idle',
-		this._funcIdleHandler.bind(this));
+	if (!this._valueIdleClient.destroyed) {
+
+		this._sendCommandWithCallback(
+			this._valueIdleClient,
+			this._valueIdleCallbackQueue,
+			'idle',
+			this._funcIdleHandler.bind(this));
+	}
 };
 
 //end idle
