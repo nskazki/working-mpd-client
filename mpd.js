@@ -476,7 +476,7 @@ MpdClient.prototype._funcIdleInit = function() {
 //end idle
 
 MpdClient.prototype._funcNoIdleInit = function() {
-	setTimeout(function() {
+	setInterval(function() {
 		if (!this._valueCoreClient) {
 			this._sendCommandWithoutCallback(this._valueCoreClient, 'noidle');
 		}
