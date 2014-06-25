@@ -133,6 +133,16 @@ MpdClient.prototype.init = function() {
 		this.on('ready-idle', this._funcIdleInit.bind(this));
 		this.on('reconnected-idle', this._funcIdleInit.bind(this));
 
+
+		/**
+			если в течении 4х минут ничего не отправлять на сервер, то 
+			соединение автоматически закроется
+			Jun 25 23:26 : client: [94] timeout
+			
+			поэтому раз в 1 минуту буду отправлять команду `noidle`
+		*/
+		this.on('ready-core', this._funcNoIdleInit.bind(this));
+
 		this._valueIsInit = true;
 	}
 
@@ -464,3 +474,11 @@ MpdClient.prototype._funcIdleInit = function() {
 };
 
 //end idle
+
+MpdClient.prototype._funcNoIdleInit = function() {
+	setTimeout(function() {
+		if (!this._valueCoreClient) {
+			this._sendCommandWithoutCallback(this._valueCoreClient, 'noidle');
+		}
+	}.bind(this), 60 * 1000);
+}
