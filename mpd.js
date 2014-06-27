@@ -477,7 +477,7 @@ MpdClient.prototype._funcIdleInit = function() {
 
 MpdClient.prototype._funcNoIdleInit = function() {
 	setInterval(function() {
-		if (!this._valueCoreClient) {
+		if (this._valueCoreClient) {
 			this._sendCommandWithoutCallback(this._valueCoreClient, 'noidle');
 		}
 	}.bind(this), 60 * 1000);
