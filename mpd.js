@@ -281,7 +281,7 @@ function Command(rawCommand) {
 Command.prototype.toString = function() {
 	return this.cmd + " " + this.args.map(function(arg) {
 		// replace all " with \"
-		return '"' + arg.toString().replace(/"/g, '\\"') + '"';
+		return arg ? ('"' + arg.toString().replace(/"/g, '\\"') + '"') : ' ';
 	}).join(" ") + "\n";
 };
 
