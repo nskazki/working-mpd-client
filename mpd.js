@@ -46,6 +46,9 @@
 		disconnected-core
 		disconnected-idle
 
+		connected-core
+		connected-idle
+
 		changed
 
 */
@@ -97,42 +100,32 @@ function MpdClient(params) {
 	//value
 	this._valueIsInit = false;
 
+	this._valueCore = {
+		client: null,
+		callbackQueue: [],
+		dateBuffer: "",
+		isReady: false,
+		name: 'core'
+	};
 
-	this._valueCoreClient = null;
-	this._valueCoreCallbackQueue = [];
-	this._valueCoreDataBuffer = "";
-	this._valueIsCoreReady = false;
-
-	this._valueIdleClient = null;
-	this._valueIdleCallbackQueue = [];
-	this._valueIdleDataBufer = "";
-	this._valueIsIdleReady = false;
+	this._valueIdle = {
+		client: null,
+		callbackQueue: [],
+		dateBuffer: "",
+		isReady: false,
+		name: 'idle'
+	};
 
 	//end value
 }
 
 MpdClient.prototype.init = function() {
 	if (!this._valueIsInit) {
-		this._funcClientInit({
-			object: '_valueCoreClient',
-			name: "core",
-			isReady: '_valueIsCoreReady',
-			callbackQueue: this._valueCoreCallbackQueue,
-			buffer: this._valueCoreDataBuffer
-		});
-
-
-		this._funcClientInit({
-			object: '_valueIdleClient',
-			name: "idle",
-			isReady: '_valueIsIdleReady',
-			callbackQueue: this._valueIdleCallbackQueue,
-			buffer: this._valueIdleDataBufer
-		});
+		this._funcClientInit(this._valueCore);
+		this._funcClientInit(this._valueIdle);
 
 		this.on('ready-idle', this._funcIdleInit.bind(this));
 		this.on('reconnected-idle', this._funcIdleInit.bind(this));
-
 
 		/**
 			если в течении 4х минут ничего не отправлять на сервер, то 
@@ -151,29 +144,29 @@ MpdClient.prototype.init = function() {
 
 MpdClient.prototype.destroy = function() {
 	if (this._valueIsInit) {
-		this._valueCoreClient.removeAllListeners();
-		this._valueIdleClient.removeAllListeners();
+		this._valueCore.client.removeAllListeners();
+		this._valueIdle.client.removeAllListeners();
 
-		if (!this._valueCoreClient.destroyed) {
-			this._valueCoreClient.destroy();
+		if (!this._valueCore.client.destroyed) {
+			this._valueCore.client.destroy();
 			this.emit('disconnected-core');
 			this.emit('disconnected');
 		}
 
-		if (!this._valueIdleClient.destroyed) {
-			this._valueIdleClient.destroy();
+		if (!this._valueIdle.client.destroyed) {
+			this._valueIdle.client.destroy();
 			this.emit('disconnected-idle');
 		}
 
 
-		this._funcCloseAllRequests(this._valueCoreClient, 'core');
-		this._funcCloseAllRequests(this._valueIdleClient, 'idle');
+		this._funcCloseAllRequests(this._valueCore.client, 'core');
+		this._funcCloseAllRequests(this._valueIdle.client, 'idle');
 
-		this._valueCoreDataBuffer = "";
-		this._valueIdleDataBufer = "";
+		this._valueCore.dataBuffer = "";
+		this._valueIdle.dataBufer = "";
 
-		this._valueIsIdleReady = false;
-		this._valueIsCoreReady = false;
+		this._valueCore.isReady = false;
+		this._valueIdle.isReady = false;
 
 		this._valueIsInit = false;
 
@@ -194,8 +187,8 @@ MpdClient.prototype.sendCommand = function(rawCommand, callback) {
 	if (!callback) callback = createDummyCallback(rawCommand).bind(this);
 
 	this._sendCommandWithCallback(
-		this._valueCoreClient,
-		this._valueCoreCallbackQueue,
+		this._valueCore.client,
+		this._valueCore.callbackQueue,
 		rawCommand,
 		callback);
 
@@ -289,27 +282,18 @@ Command.prototype.toString = function() {
 
 //CoreClient
 /**
-	clientProps = {
-		object: ...,
-		name: "...",
-		isReady: ...,
-		callbackQueue: ...,
-		buffer: ...
-	}
+	this._valueIdle = {
+		client: null,
+		callbackQueue: [],
+		dateBuffer: "",
+		isReady: false
+	};
 */
 MpdClient.prototype._funcClientInit = function(clientProps) {
-	this[clientProps.object] = net.connect(this._paramConnectOptions)
+	clientProps.client = net.connect(this._paramConnectOptions)
 		.on('connect', function() {
-			if (this[clientProps.isReady] == false) {
-				this[clientProps.isReady] = true;
-
-				if (this._valueIsIdleReady && this._valueIsCoreReady) this.emit('ready');
-				this.emit('ready-' + clientProps.name);
-			} else {
-				this.emit('reconnected-' + clientProps.name);
-				if (clientProps.name == 'core') this.emit('reconnected');
-			}
-
+			this.emit('connected-' + clientProps.name);
+			if (clientProps.name == 'core') this.emit('connected');
 		}.bind(this))
 		.on('error', function(error) {
 			this.emit('error', {
@@ -320,16 +304,16 @@ MpdClient.prototype._funcClientInit = function(clientProps) {
 		.on('data', this._funcCreateClientOnDataHandler(clientProps).bind(this))
 		.on('close', this._funcCreateClientReconecter(clientProps).bind(this));
 
-	this[clientProps.object].setEncoding('utf8');
+	clientProps.client.setEncoding('utf8');
 };
 
 MpdClient.prototype._funcCreateClientReconecter = function(clientProps) {
 	return function() {
-		this[clientProps.object].removeAllListeners();
+		clientProps.client.removeAllListeners();
 
 		this._funcCloseAllRequests(clientProps.callbackQueue, clientProps.name);
 
-		clientProps.buffer = "";
+		clientProps.dateBuffer = "";
 
 		if (this._paramReconnectOptions.isUse) {
 			this.emit('warn', {
@@ -393,10 +377,10 @@ MpdClient.prototype._funcCloseAllRequests = function(queue, clientName) {
 */
 MpdClient.prototype._funcCreateClientOnDataHandler = function(clientProps) {
 	return function(data) {
-		clientProps.buffer += data;
+		clientProps.dateBuffer += data;
 
-		var welcom = clientProps.buffer.match(/(^OK MPD.*?\n)/m);
-		var end = clientProps.buffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
+		var welcom = clientProps.dateBuffer.match(/(^OK MPD.*?\n)/m);
+		var end = clientProps.dateBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
 
 		if (DEBUG) {
 			console.log('-------' + clientProps.name + '-------');
@@ -406,8 +390,8 @@ MpdClient.prototype._funcCreateClientOnDataHandler = function(clientProps) {
 			console.log();
 
 			console.log('-------' + clientProps.name + '-------');
-			console.log('buffer');
-			console.log(clientProps.buffer);
+			console.log('dateBuffer');
+			console.log(clientProps.dateBuffer);
 			console.log('-------' + clientProps.name + '-------');
 			console.log();
 
@@ -420,18 +404,28 @@ MpdClient.prototype._funcCreateClientOnDataHandler = function(clientProps) {
 
 		while (welcom || end) {
 			if (welcom) {
-				clientProps.buffer = clientProps.buffer.substring(welcom[0].length + welcom.index);
+				if (!clientProps.isReady) {
+					clientProps.isReady = true;
+
+					if (this._valueIdle.isReady && this._valueCore.isReady) this.emit('ready');
+					this.emit('ready-' + clientProps.name);
+				} else {
+					this.emit('reconnected-' + clientProps.name);
+					if (clientProps.name == 'core') this.emit('reconnected');
+				}
+
+				clientProps.dateBuffer = clientProps.dateBuffer.substring(welcom[0].length + welcom.index);
 			} else {
-				var result = clientProps.buffer.substring(0, end.index);
-				clientProps.buffer = clientProps.buffer.substring(end[0].length + end.index);
+				var result = clientProps.dateBuffer.substring(0, end.index);
+				clientProps.dateBuffer = clientProps.dateBuffer.substring(end[0].length + end.index);
 
 				var callback = clientProps.callbackQueue.shift();
 				if (end[0].match(/^ACK\s\[.*?\].*(?:\n|$)/)) callback(end[0]);
 				else callback(null, result.trim());
 			}
 
-			welcom = clientProps.buffer.match(/(^OK MPD.*?\n)/m);
-			end = clientProps.buffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
+			welcom = clientProps.dateBuffer.match(/(^OK MPD.*?\n)/m);
+			end = clientProps.dateBuffer.match(/(^OK(?:\n|$)|^ACK\s\[.*?\].*(?:\n|$))/m);
 		}
 	}
 };
@@ -463,11 +457,11 @@ MpdClient.prototype._funcIdleHandler = function(err, result) {
 	
 */
 MpdClient.prototype._funcIdleInit = function() {
-	if (!this._valueIdleClient.destroyed) {
+	if (!this._valueIdle.client.destroyed) {
 
 		this._sendCommandWithCallback(
-			this._valueIdleClient,
-			this._valueIdleCallbackQueue,
+			this._valueIdle.client,
+			this._valueIdle.callbackQueue,
 			'idle',
 			this._funcIdleHandler.bind(this));
 	}
@@ -477,8 +471,8 @@ MpdClient.prototype._funcIdleInit = function() {
 
 MpdClient.prototype._funcNoIdleInit = function() {
 	setInterval(function() {
-		if (this._valueCoreClient) {
-			this._sendCommandWithoutCallback(this._valueCoreClient, 'noidle');
+		if (this._valueCore.client) {
+			this._sendCommandWithoutCallback(this._valueCore.client, 'noidle');
 		}
 	}.bind(this), 60 * 1000);
 }
