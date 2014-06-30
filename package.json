@@ -1,6 +1,6 @@
 {
   "name": "working-mpd-client",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "mpd client",
   "main": "mpd.js",
   "scripts": {
