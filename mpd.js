@@ -66,10 +66,6 @@ var DEBUG = false;
 
 //end const
 
-var EventEmitter = require('events').EventEmitter;
-var util = require('util');
-var net = require('net');
-
 module.exports = MpdClient;
 
 util.inherits(MpdClient, EventEmitter);
