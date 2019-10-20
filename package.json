@@ -2,7 +2,7 @@
   "name": "working-mpd-client",
   "author": "nskazki@gmail.com",
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MPD client",
   "keywords": [
     "MPD"
