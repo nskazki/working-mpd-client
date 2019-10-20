@@ -3,11 +3,11 @@
   "author": "nskazki@gmail.com",
   "license": "MIT",
   "version": "1.0.1",
-  "description": "MPD client",
+  "description": "An MPD client",
+  "homepage": "https://github.com/nskazki/working-mpd-client",
   "keywords": [
     "MPD"
   ],
-  "homepage": "https://github.com/nskazki/working-mpd-client",
   "repository": {
     "type": "git",
     "url": "https://github.com/nskazki/working-mpd-client.git"

@@ -1,5 +1,7 @@
 # WorkingMpdClient
 
+An MPD client
+
 ```
 yarn add working-mpd-client
 ```
