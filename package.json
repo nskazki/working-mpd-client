@@ -1,19 +1,19 @@
 {
   "name": "working-mpd-client",
+  "author": "nskazki@gmail.com",
+  "license": "MIT",
   "version": "0.1.16",
   "description": "mpd client",
+  "homepage": "https://github.com/nskazki/working-mpd-client",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nskazki/working-mpd-client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nskazki/working-mpd-client/issues"
+  },
   "main": "mpd.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nskazki/node-WorkingMpdClient.git"
-  },
-  "author": "nskazki (http://nskazki.dyndns.info/)",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/nskazki/node-WorkingMpdClient/issues"
-  },
-  "homepage": "https://github.com/nskazki/node-WorkingMpdClient"
+  }
 }
