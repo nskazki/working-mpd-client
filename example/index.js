@@ -12,13 +12,13 @@ const mpdClient = new MpdClient({
   }
 }).on('error', console.error)
   .on('changed', (name) => {
-    if (name == "playlist") printPlaylist()
+    if (name === 'playlist') printPlaylist()
   })
   .on('ready', printPlaylist)
   .init()
 
 function printPlaylist() {
-  mpdClient.sendCommand('playlist', function(err, result) {
+  mpdClient.sendCommand('playlist', (err, result) => {
     if (err) {
       console.error(err)
     } else {
